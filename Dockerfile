@@ -12,10 +12,9 @@ WORKDIR /app
 # de npm ci y la reconstruccion tarda segundos en vez de minutos.
 COPY package*.json ./
 RUN npm ci
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
-COPY pruebas ./pruebas
-RUN npm run compilar
+RUN npx tsc -p tsconfig.build.json
 
 FROM node:20-alpine AS ejecucion
 # tini reenvia las senales del sistema al proceso de Node. Sin el, el
