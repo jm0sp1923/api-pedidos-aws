@@ -1,0 +1,77 @@
+# =============================================================================
+# buildspec.yml - instrucciones que AWS CodeBuild ejecuta en cada compilacion
+#
+# Fases:
+#   install    : prepara Node 20
+#   pre_build  : instala dependencias, EJECUTA LAS PRUEBAS UNITARIAS y entra a ECR
+#   build      : construye la imagen de Docker
+#   post_build : publica la imagen y escribe los artefactos de despliegue
+#
+# Si las pruebas fallan, la fase se corta y el pipeline se detiene: la
+# imagen no llega a construirse ni a publicarse.
+# =============================================================================
+version: 0.2
+
+env:
+  variables:
+    AWS_REGION: us-east-1
+    REPO: api-pedidos
+    CONTENEDOR: api-pedidos
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+
+  pre_build:
+    commands:
+      - echo "=== Instalando dependencias ==="
+      # npm ci respeta package-lock.json; junto con la cache de node_modules
+      # declarada abajo, las compilaciones siguientes son mucho mas rapidas.
+      - npm ci
+      - echo "=== Ejecutando pruebas unitarias ==="
+      - npm run prueba
+      - echo "=== Iniciando sesion en Amazon ECR ==="
+      - ID_CUENTA=$(aws sts get-caller-identity --query Account --output text)
+      - REGISTRO=$ID_CUENTA.dkr.ecr.$AWS_REGION.amazonaws.com
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REGISTRO
+      # La etiqueta son los siete primeros caracteres del commit: cada imagen
+      # queda ligada de forma inequivoca al codigo que la produjo.
+      - ETIQUETA=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c1-7)
+      - echo "Commit $CODEBUILD_RESOLVED_SOURCE_VERSION con etiqueta $ETIQUETA"
+
+  build:
+    commands:
+      - echo "=== Construyendo la imagen de Docker ==="
+      # --platform linux/amd64 garantiza la arquitectura que ejecuta Fargate.
+      # --provenance=false evita el indice de atestacion que algunas
+      # versiones de Docker generan y que Fargate no siempre resuelve.
+      - docker build --platform linux/amd64 --provenance=false -t $REPO:$ETIQUETA .
+      - docker tag $REPO:$ETIQUETA $REGISTRO/$REPO:$ETIQUETA
+      - docker tag $REPO:$ETIQUETA $REGISTRO/$REPO:latest
+
+  post_build:
+    commands:
+      - echo "=== Publicando la imagen en ECR ==="
+      - docker push $REGISTRO/$REPO:$ETIQUETA
+      - docker push $REGISTRO/$REPO:latest
+      - echo "=== Generando los artefactos de despliegue ==="
+      # Un archivo por entorno: cada etapa de despliegue consume el suyo,
+      # pero ambos apuntan a la MISMA imagen. Lo que se prueba es lo que se
+      # promueve a produccion, bit a bit.
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$CONTENEDOR" "$REGISTRO/$REPO:$ETIQUETA" > imagedefinitions.json
+      - cp imagedefinitions.json imagedefinitions-produccion.json
+      - cat imagedefinitions.json
+
+# Cache de dependencias: node_modules y la cache de npm se conservan entre
+# compilaciones, de modo que npm ci no vuelve a descargar todo cada vez.
+cache:
+  paths:
+    - 'node_modules/**/*'
+    - '/root/.npm/**/*'
+
+artifacts:
+  files:
+    - imagedefinitions.json
+    - imagedefinitions-produccion.json
+

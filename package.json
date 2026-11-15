@@ -1,0 +1,27 @@
+{
+  "name": "api-pedidos",
+  "version": "1.0.0",
+  "description": "Plataforma de gestion de pedidos desplegada en AWS con un pipeline de CI/CD",
+  "main": "dist/src/servidor.js",
+  "scripts": {
+    "dev": "ts-node src/servidor.ts",
+    "compilar": "tsc",
+    "start": "node dist/src/servidor.js",
+    "prueba": "tsc && node --test dist/pruebas/*.test.js",
+    "probar-api": "ts-node src/probar-api.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.620.0",
+    "@aws-sdk/lib-dynamodb": "^3.620.0",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

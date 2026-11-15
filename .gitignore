@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env.local
+infra/.generado/
+informe/salida/
+informe/capturas/
+guion/salida/

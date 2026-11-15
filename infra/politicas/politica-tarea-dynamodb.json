@@ -1,0 +1,20 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AccesoSoloALasTablasDePedidos",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:PutItem",
+        "dynamodb:GetItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:Scan",
+        "dynamodb:Query"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:REGION:ID_CUENTA:table/pedidos-pruebas",
+        "arn:aws:dynamodb:REGION:ID_CUENTA:table/pedidos-produccion"
+      ]
+    }
+  ]
+}
